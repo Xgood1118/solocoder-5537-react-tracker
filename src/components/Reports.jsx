@@ -37,12 +37,17 @@ const Reports = () => {
       .toArray();
   }, [dateRange]);
 
-  if (!projects || !tasks || !entries) return <div className="loading">加载中...</div>;
-
-  const projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
-  const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
+  const projectMap = useMemo(() => 
+    projects ? Object.fromEntries(projects.map(p => [p.id, p])) : {},
+    [projects]
+  );
+  const taskMap = useMemo(() => 
+    tasks ? Object.fromEntries(tasks.map(t => [t.id, t])) : {},
+    [tasks]
+  );
 
   const byProjectData = useMemo(() => {
+    if (!projects || !entries) return { billable: [], nonBillable: [] };
     const billable = [];
     const nonBillable = [];
     
@@ -52,7 +57,7 @@ const Reports = () => {
       if (total > 0) {
         const data = {
           name: project.name,
-          value: parseFloat(formatDurationHours(total * 3600000)),
+          value: parseFloat(formatDurationHours(total)),
           color: project.color
         };
         if (project.billable) {
@@ -67,6 +72,7 @@ const Reports = () => {
   }, [projects, entries]);
 
   const byTaskData = useMemo(() => {
+    if (!entries || !tasks) return [];
     const taskTotals = {};
     entries.forEach(entry => {
       const task = taskMap[entry.task_id];
@@ -78,12 +84,13 @@ const Reports = () => {
     });
     
     return Object.values(taskTotals)
-      .map(t => ({ ...t, value: parseFloat(formatDurationHours(t.value * 3600000)) }))
+      .map(t => ({ ...t, value: parseFloat(formatDurationHours(t.value)) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
-  }, [entries, tasks]);
+  }, [entries, tasks, taskMap]);
 
   const trendData = useMemo(() => {
+    if (!entries) return [];
     const byDate = {};
     entries.forEach(entry => {
       const date = dayjs(entry.start_time).format('YYYY-MM-DD');
@@ -96,9 +103,11 @@ const Reports = () => {
     return Object.entries(byDate)
       .map(([date, duration]) => ({
         date: dayjs(date).format('MM-DD'),
-        工时: parseFloat(formatDurationHours(duration * 3600000))
+        工时: parseFloat(formatDurationHours(duration))
       }));
   }, [entries]);
+
+  if (!projects || !tasks || !entries) return <div className="loading">加载中...</div>;
 
   const handleExportCSV = () => {
     exportToCSV(entries, projects, tasks);
